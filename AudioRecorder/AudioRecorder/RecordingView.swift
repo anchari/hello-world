@@ -87,6 +87,6 @@ struct RecordingView: View {
         let m = Int(t) / 60
         let s = Int(t) % 60
         let ds = Int((t * 10).truncatingRemainder(dividingBy: 10))
-        return String(format: "%02d:%02d.%d", m, s, ds)
+        return String(format: "%d:%d.%d", m, s, ds)
     }
 }
