@@ -78,6 +78,7 @@ struct RecordingRow: View {
                 }
                 Spacer()
             }
+            .buttonStyle(.borderless)
             .padding(.top, 4)
         }
         .padding(.vertical, 6)
