@@ -7,6 +7,7 @@ class RecordingManager: NSObject, ObservableObject {
     @Published var recordings: [Recording] = []
 
     @Published var playingID: UUID? = nil
+    @Published var isPlaybackPaused = false
     @Published var playbackTime: TimeInterval = 0
     @Published var playbackDuration: TimeInterval = 0
 
@@ -101,6 +102,7 @@ class RecordingManager: NSObject, ObservableObject {
             audioPlayer?.play()
 
             playingID = recording.id
+            isPlaybackPaused = false
             playbackTime = 0
             playbackDuration = audioPlayer?.duration ?? recording.duration
             startPlaybackTimer()
@@ -112,7 +114,13 @@ class RecordingManager: NSObject, ObservableObject {
     func pausePlayback() {
         audioPlayer?.pause()
         playbackTimer?.invalidate()
-        playingID = nil
+        isPlaybackPaused = true
+    }
+
+    func resumePlayback() {
+        audioPlayer?.play()
+        isPlaybackPaused = false
+        startPlaybackTimer()
     }
 
     func stopPlayback() {
@@ -120,7 +128,15 @@ class RecordingManager: NSObject, ObservableObject {
         audioPlayer = nil
         playbackTimer?.invalidate()
         playingID = nil
+        isPlaybackPaused = false
         playbackTime = 0
+    }
+
+    func skip(by seconds: TimeInterval) {
+        guard let player = audioPlayer else { return }
+        let newTime = max(0, min(player.currentTime + seconds, player.duration))
+        player.currentTime = newTime
+        playbackTime = newTime
     }
 
     // MARK: - CRUD
@@ -173,6 +189,7 @@ extension RecordingManager: AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         playbackTimer?.invalidate()
         playingID = nil
+        isPlaybackPaused = false
         playbackTime = 0
     }
 }

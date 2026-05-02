@@ -17,10 +17,6 @@ struct StoredRecordingsView: View {
                         ForEach(manager.recordings) { recording in
                             RecordingRow(recording: recording)
                         }
-                        .onDelete { indexSet in
-                            let toDelete = indexSet.map { manager.recordings[$0] }
-                            toDelete.forEach { manager.delete($0) }
-                        }
                     }
                 }
             }
@@ -36,7 +32,8 @@ struct RecordingRow: View {
     @State private var title = ""
     @FocusState private var isFocused: Bool
 
-    private var isPlaying: Bool { manager.playingID == recording.id }
+    private var isActive: Bool { manager.playingID == recording.id }
+    private var isPlaying: Bool { isActive && !manager.isPlaybackPaused }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -56,29 +53,32 @@ struct RecordingRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            if isPlaying {
+            if isActive {
                 PlaybackBar()
-                    .padding(.top, 2)
+                    .padding(.vertical, 4)
             }
 
             HStack {
-                Button(action: handlePlayPause) {
-                    Label(
-                        isPlaying ? "Pause" : "Play",
-                        systemImage: isPlaying ? "pause.circle.fill" : "play.circle.fill"
-                    )
-                    .font(.subheadline.weight(.medium))
-                }
-
                 Spacer()
-
+                controlButton("gobackward.10", enabled: isActive) { manager.skip(by: -10) }
+                Spacer()
+                Button(action: handlePlayPause) {
+                    Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 36))
+                }
+                Spacer()
+                controlButton("goforward.10", enabled: isActive) { manager.skip(by: 10) }
+                Spacer()
+                controlButton("trash", color: .red) { manager.delete(recording) }
+                Spacer()
                 ShareLink(item: recording.url) {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.subheadline)
+                        .font(.system(size: 20))
                         .foregroundStyle(.secondary)
                 }
+                Spacer()
             }
-            .padding(.top, 2)
+            .padding(.top, 4)
         }
         .padding(.vertical, 6)
         .onAppear { title = recording.title }
@@ -87,9 +87,26 @@ struct RecordingRow: View {
     private func handlePlayPause() {
         if isPlaying {
             manager.pausePlayback()
+        } else if isActive {
+            manager.resumePlayback()
         } else {
             manager.play(recording)
         }
+    }
+
+    @ViewBuilder
+    private func controlButton(
+        _ icon: String,
+        color: Color = .primary,
+        enabled: Bool = true,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(enabled ? color : Color(.systemGray3))
+        }
+        .disabled(!enabled)
     }
 
     private func commitTitle() {
