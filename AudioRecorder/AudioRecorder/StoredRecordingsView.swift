@@ -30,6 +30,7 @@ struct RecordingRow: View {
     let recording: Recording
 
     @State private var title = ""
+    @State private var confirmDelete = false
     @FocusState private var isFocused: Bool
 
     private var isActive: Bool { manager.playingID == recording.id }
@@ -58,28 +59,40 @@ struct RecordingRow: View {
                     .padding(.vertical, 4)
             }
 
-            HStack {
-                Spacer()
-                controlButton("gobackward.10", enabled: isActive) { manager.skip(by: -10) }
-                Spacer()
-                Button(action: handlePlayPause) {
-                    Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 36))
+            HStack(spacing: 0) {
+                // Playback controls group
+                HStack(spacing: 0) {
+                    Spacer()
+                    controlButton("gobackward.10", enabled: isActive) { manager.skip(by: -10) }
+                    Spacer()
+                    Button(action: handlePlayPause) {
+                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 36))
+                    }
+                    Spacer()
+                    controlButton("goforward.10", enabled: isActive) { manager.skip(by: 10) }
+                    Spacer()
+                    ShareLink(item: recording.url) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
-                controlButton("goforward.10", enabled: isActive) { manager.skip(by: 10) }
-                Spacer()
-                controlButton("trash", color: .red) { manager.delete(recording) }
-                Spacer()
-                ShareLink(item: recording.url) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+
+                Divider()
+                    .padding(.horizontal, 12)
+
+                // Delete — isolated to avoid accidental taps
+                controlButton("trash", color: .red) { confirmDelete = true }
+                    .padding(.trailing, 8)
             }
             .buttonStyle(.borderless)
             .padding(.top, 4)
+            .confirmationDialog("Delete this recording?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) { manager.delete(recording) }
+                Button("Cancel", role: .cancel) {}
+            }
         }
         .padding(.vertical, 6)
         .onAppear { title = recording.title }
