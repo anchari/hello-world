@@ -37,8 +37,15 @@ class RecordingManager: NSObject, ObservableObject {
 
             let engine = AVAudioEngine()
             audioEngine = engine
+            engine.prepare()
+
             let inputNode = engine.inputNode
-            let format = inputNode.outputFormat(forBus: 0)
+            var format = inputNode.outputFormat(forBus: 0)
+
+            // Simulator can return 0 Hz before hardware is ready — use a safe fallback
+            if format.sampleRate == 0 || format.channelCount == 0 {
+                format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+            }
 
             let filename = "recording_\(Date().timeIntervalSince1970).caf"
             let url = documentsURL().appendingPathComponent(filename)
