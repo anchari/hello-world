@@ -107,6 +107,11 @@ class TranscriptionManager: ObservableObject {
         isLiveTranscribing = true
         cycleStart = Date()
 
+        // Ensure the audio session is active before accessing input node format
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
+        try? session.setActive(true)
+
         let engine = AVAudioEngine()
         audioEngine = engine
         let inputNode = engine.inputNode
