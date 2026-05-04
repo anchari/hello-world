@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F2F2F7"/>
+      <stop offset="100%" style="stop-color:#E5E5EA"/>
+    </linearGradient>
+    <clipPath id="phone">
+      <rect width="390" height="844" rx="44" ry="44"/>
+    </clipPath>
+  </defs>
+
+  <!-- Phone body -->
+  <rect width="390" height="844" rx="44" ry="44" fill="url(#bg)" clip-path="url(#phone)"/>
+
+  <!-- Status bar -->
+  <rect width="390" height="50" fill="#F2F2F7"/>
+  <text x="32" y="34" font-family="-apple-system, SF Pro, Helvetica" font-size="15" font-weight="600" fill="#000">9:41</text>
+  <text x="330" y="34" font-family="-apple-system, SF Pro, Helvetica" font-size="13" fill="#000">● ● ▮</text>
+
+  <!-- Nav bar -->
+  <rect x="0" y="50" width="390" height="52" fill="#F2F2F7"/>
+  <text x="195" y="84" font-family="-apple-system, SF Pro, Helvetica" font-size="18" font-weight="600" fill="#000" text-anchor="middle">Record</text>
+
+  <!-- Timer -->
+  <text x="195" y="210" font-family="-apple-system, SF Pro Mono, Courier" font-size="72" font-weight="100" fill="#FF3B30" text-anchor="middle" letter-spacing="-2">1:24</text>
+
+  <!-- Recording pulse ring -->
+  <circle cx="195" cy="330" r="58" fill="none" stroke="#FF3B30" stroke-width="2" opacity="0.3"/>
+  <circle cx="195" cy="330" r="48" fill="#FF3B30"/>
+  <!-- Pause icon -->
+  <rect x="182" y="318" width="8" height="24" rx="2" fill="white"/>
+  <rect x="200" y="318" width="8" height="24" rx="2" fill="white"/>
+
+  <!-- Finish button -->
+  <circle cx="195" cy="420" r="38" fill="#34C759"/>
+  <text x="195" y="428" font-family="-apple-system, SF Pro, Helvetica" font-size="22" fill="white" text-anchor="middle">✓</text>
+
+  <!-- Divider -->
+  <line x1="32" y1="480" x2="358" y2="480" stroke="#C6C6C8" stroke-width="0.5"/>
+
+  <!-- Transcript label -->
+  <text x="32" y="506" font-family="-apple-system, SF Pro, Helvetica" font-size="13" font-weight="500" fill="#8E8E93">LIVE TRANSCRIPT</text>
+
+  <!-- Transcript text area -->
+  <rect x="16" y="518" width="358" height="240" rx="12" fill="white" opacity="0.8"/>
+
+  <!-- Finalised text -->
+  <text x="32" y="546" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">So I wanted to follow up on the meeting</text>
+  <text x="32" y="568" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">we had last Thursday. The main action</text>
+  <text x="32" y="590" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">items were to review the proposal and</text>
+  <text x="32" y="612" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">get back to Sarah by end of week.</text>
+  <text x="32" y="634" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">I also need to check in with the</text>
+  <text x="32" y="656" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#000">engineering team about the timeline for</text>
+  <!-- Partial/in-progress text -->
+  <text x="32" y="678" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#8E8E93">the next release and whether we can</text>
+  <text x="32" y="700" font-family="-apple-system, SF Pro, Helvetica" font-size="15" fill="#C6C6C8">still meet the deadline…</text>
+
+  <!-- Fade gradient at bottom of transcript -->
+  <defs>
+    <linearGradient id="fade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0"/>
+      <stop offset="100%" style="stop-color:white;stop-opacity:0.9"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="700" width="358" height="58" rx="0" fill="url(#fade)"/>
+
+  <!-- Tab bar -->
+  <rect x="0" y="770" width="390" height="74" fill="#F2F2F7"/>
+  <line x1="0" y1="770" x2="390" y2="770" stroke="#C6C6C8" stroke-width="0.5"/>
+  <!-- Mic tab (active) -->
+  <text x="98" y="800" font-family="-apple-system, SF Pro, Helvetica" font-size="22" fill="#FF3B30" text-anchor="middle">⏺</text>
+  <text x="98" y="820" font-family="-apple-system, SF Pro, Helvetica" font-size="10" fill="#FF3B30" text-anchor="middle">Record</text>
+  <!-- Recordings tab -->
+  <text x="293" y="800" font-family="-apple-system, SF Pro, Helvetica" font-size="22" fill="#8E8E93" text-anchor="middle">☰</text>
+  <text x="293" y="820" font-family="-apple-system, SF Pro, Helvetica" font-size="10" fill="#8E8E93" text-anchor="middle">Recordings</text>
+</svg>
