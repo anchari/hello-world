@@ -189,8 +189,11 @@ class TranscriptionManager: ObservableObject {
     }
 
     private static func cleanSegmentText(_ text: String) -> String {
-        let pattern = #"\s*\[\d+:\d+\.\d+\s*-->\s*\d+:\d+\.\d+\]\s*"#
-        let cleaned = text.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
+        var cleaned = text
+        // Strip Whisper special tokens e.g. <|startoftranscript|>, <|en|>, <|0.00|>
+        cleaned = cleaned.replacingOccurrences(of: #"<\|[^|]*\|>"#, with: "", options: .regularExpression)
+        // Strip bracket-style timestamp markers e.g. [00:00.000 --> 00:02.500]
+        cleaned = cleaned.replacingOccurrences(of: #"\s*\[\d+:\d+\.\d+\s*-->\s*\d+:\d+\.\d+\]\s*"#, with: " ", options: .regularExpression)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
