@@ -181,10 +181,7 @@ class TranscriptionManager: ObservableObject {
     private func loadWhisperKit() async {
         await MainActor.run { modelState = .loading(0) }
         do {
-            let kit = try await WhisperKit(
-                model: "openai_whisper-small",
-                computeOptions: WhisperKitConfig(computeUnits: .cpuAndNeuralEngine)
-            )
+            let kit = try await WhisperKit(model: "openai_whisper-small")
             await MainActor.run {
                 self.whisper = kit
                 self.modelState = .ready
