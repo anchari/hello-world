@@ -111,7 +111,7 @@ struct RecordingView: View {
 
                 circleButton(icon: "checkmark", background: .green, foreground: .white, size: 76) {
                     let draft = transcriptionManager.stopLiveTranscription()
-                    manager.finishRecording(draftTranscript: draft, transcriptionManager: transcriptionManager)
+                    manager.finishRecording(draftTranscript: draft)
                 }
             }
         } else {

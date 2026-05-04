@@ -23,13 +23,11 @@ class TranscriptionManager: ObservableObject {
     private var recognizer: SFSpeechRecognizer?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var audioEngine: AVAudioEngine?
     private var restartTimer: Timer?
 
     private var accumulatedText: String = ""
     private var cycleOffset: TimeInterval = 0
     private var cycleStart: Date = Date()
-    private var accumulatedSegments: [Transcript.Segment] = []
     private var isLiveTranscribing = false
 
     // MARK: - Private: WhisperKit
@@ -52,20 +50,22 @@ class TranscriptionManager: ObservableObject {
         }
     }
 
+    // Called by RecordingManager's audio tap
+    func appendBuffer(_ buffer: AVAudioPCMBuffer) {
+        recognitionRequest?.append(buffer)
+    }
+
     func stopLiveTranscription() -> String {
         isLiveTranscribing = false
         restartTimer?.invalidate()
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine?.stop()
-        audioEngine = nil
         recognitionRequest = nil
         recognitionTask = nil
+
         let final = liveText
         liveText = ""
         accumulatedText = ""
-        accumulatedSegments = []
         cycleOffset = 0
         return final
     }
@@ -86,12 +86,7 @@ class TranscriptionManager: ObservableObject {
             }
         }
 
-        // Fallback: save the SFSpeechRecognizer draft
-        let fallback = Transcript(
-            engine: .appleSFSpeech,
-            segments: [],
-            fullText: draftText
-        )
+        let fallback = Transcript(engine: .appleSFSpeech, segments: [], fullText: draftText)
         save(fallback, for: recording)
     }
 
@@ -107,51 +102,23 @@ class TranscriptionManager: ObservableObject {
         isLiveTranscribing = true
         cycleStart = Date()
 
-        // Ensure the audio session is active before accessing input node format
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
-        try? session.setActive(true)
-
-        let engine = AVAudioEngine()
-        audioEngine = engine
-        let inputNode = engine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         recognitionRequest = request
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.recognitionRequest?.append(buffer)
-        }
-
         recognitionTask = recognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
             if let result {
                 let offset = self.cycleOffset
-                let partialSegments: [Transcript.Segment] = result.bestTranscription.segments.map { seg in
-                    Transcript.Segment(
-                        text: seg.substring,
-                        startTime: seg.timestamp + offset,
-                        duration: seg.duration,
-                        confidence: Float(seg.confidence)
-                    )
-                }
                 Task { @MainActor in
                     self.liveText = self.accumulatedText + result.bestTranscription.formattedString
                     if result.isFinal {
                         self.accumulatedText = self.liveText + " "
-                        self.accumulatedSegments += partialSegments
                     }
                 }
+                _ = offset // used for future segment timestamp tracking
             }
-        }
-
-        do {
-            try engine.start()
-        } catch {
-            print("AVAudioEngine failed to start: \(error)")
         }
 
         scheduleRestart()
@@ -172,9 +139,6 @@ class TranscriptionManager: ObservableObject {
 
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine?.stop()
-        audioEngine = nil
         recognitionRequest = nil
         recognitionTask = nil
 
@@ -225,7 +189,6 @@ class TranscriptionManager: ObservableObject {
     }
 
     private static func cleanSegmentText(_ text: String) -> String {
-        // Strip WhisperKit timestamp markers e.g. " [00:00.000 --> 00:02.500]"
         let pattern = #"\s*\[\d+:\d+\.\d+\s*-->\s*\d+:\d+\.\d+\]\s*"#
         let cleaned = text.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)

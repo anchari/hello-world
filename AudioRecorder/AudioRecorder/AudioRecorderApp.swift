@@ -10,6 +10,9 @@ struct AudioRecorderApp: App {
             ContentView()
                 .environmentObject(recordingManager)
                 .environmentObject(transcriptionManager)
+                .onAppear {
+                    recordingManager.transcriptionManager = transcriptionManager
+                }
         }
     }
 }

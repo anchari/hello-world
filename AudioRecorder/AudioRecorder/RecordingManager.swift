@@ -11,10 +11,16 @@ class RecordingManager: NSObject, ObservableObject {
     @Published var playbackTime: TimeInterval = 0
     @Published var playbackDuration: TimeInterval = 0
 
-    private var audioRecorder: AVAudioRecorder?
+    weak var transcriptionManager: TranscriptionManager?
+
+    private var audioEngine: AVAudioEngine?
+    private var audioFile: AVAudioFile?
     private var audioPlayer: AVAudioPlayer?
     private var recordingTimer: Timer?
     private var playbackTimer: Timer?
+    private var currentRecordingURL: URL?
+    private var lastResumeTime: Date?
+    private var accumulatedRecordingTime: TimeInterval = 0
 
     override init() {
         super.init()
@@ -29,21 +35,29 @@ class RecordingManager: NSObject, ObservableObject {
             try session.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
             try session.setActive(true)
 
-            let filename = "recording_\(Date().timeIntervalSince1970).m4a"
+            let engine = AVAudioEngine()
+            audioEngine = engine
+            let inputNode = engine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+
+            let filename = "recording_\(Date().timeIntervalSince1970).caf"
             let url = documentsURL().appendingPathComponent(filename)
+            currentRecordingURL = url
 
-            let settings: [String: Any] = [
-                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            ]
+            audioFile = try AVAudioFile(forWriting: url, settings: format.settings)
 
-            audioRecorder = try AVAudioRecorder(url: url, settings: settings)
-            audioRecorder?.record()
+            inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+                guard let self, !self.isPaused else { return }
+                try? self.audioFile?.write(from: buffer)
+                self.transcriptionManager?.appendBuffer(buffer)
+            }
+
+            try engine.start()
 
             isRecording = true
             isPaused = false
+            accumulatedRecordingTime = 0
+            lastResumeTime = Date()
             recordingTime = 0
             startRecordingTimer()
         } catch {
@@ -52,26 +66,39 @@ class RecordingManager: NSObject, ObservableObject {
     }
 
     func pauseRecording() {
-        audioRecorder?.pause()
+        if let start = lastResumeTime {
+            accumulatedRecordingTime += Date().timeIntervalSince(start)
+        }
+        lastResumeTime = nil
         isPaused = true
         recordingTimer?.invalidate()
     }
 
     func resumeRecording() {
-        audioRecorder?.record()
+        lastResumeTime = Date()
         isPaused = false
         startRecordingTimer()
     }
 
-    func finishRecording(draftTranscript: String = "", transcriptionManager: TranscriptionManager? = nil) {
-        guard let recorder = audioRecorder else { return }
+    func finishRecording(draftTranscript: String = "") {
+        audioEngine?.inputNode.removeTap(onBus: 0)
+        audioEngine?.stop()
+        audioFile = nil
+        recordingTimer?.invalidate()
 
-        let url = recorder.url
-        let duration = recorder.currentTime
+        if let start = lastResumeTime {
+            accumulatedRecordingTime += Date().timeIntervalSince(start)
+        }
+        let duration = accumulatedRecordingTime
         let now = Date()
 
-        recorder.stop()
-        recordingTimer?.invalidate()
+        guard let url = currentRecordingURL else {
+            isRecording = false
+            isPaused = false
+            recordingTime = 0
+            audioEngine = nil
+            return
+        }
 
         let recording = Recording(
             id: UUID(),
@@ -86,7 +113,10 @@ class RecordingManager: NSObject, ObservableObject {
         isRecording = false
         isPaused = false
         recordingTime = 0
-        audioRecorder = nil
+        audioEngine = nil
+        currentRecordingURL = nil
+        lastResumeTime = nil
+        accumulatedRecordingTime = 0
 
         if let tm = transcriptionManager {
             Task {
@@ -162,6 +192,8 @@ class RecordingManager: NSObject, ObservableObject {
     func delete(_ recording: Recording) {
         if playingID == recording.id { stopPlayback() }
         try? FileManager.default.removeItem(at: recording.url)
+        let transcriptURL = Transcript.url(for: recording.filename)
+        try? FileManager.default.removeItem(at: transcriptURL)
         recordings.removeAll { $0.id == recording.id }
         saveRecordings()
     }
@@ -170,7 +202,8 @@ class RecordingManager: NSObject, ObservableObject {
 
     private func startRecordingTimer() {
         recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            self?.recordingTime = self?.audioRecorder?.currentTime ?? 0
+            guard let self, let start = self.lastResumeTime else { return }
+            self.recordingTime = self.accumulatedRecordingTime + Date().timeIntervalSince(start)
         }
     }
 
