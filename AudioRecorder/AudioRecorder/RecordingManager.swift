@@ -63,7 +63,7 @@ class RecordingManager: NSObject, ObservableObject {
         startRecordingTimer()
     }
 
-    func finishRecording() {
+    func finishRecording(draftTranscript: String = "", transcriptionManager: TranscriptionManager? = nil) {
         guard let recorder = audioRecorder else { return }
 
         let url = recorder.url
@@ -87,6 +87,18 @@ class RecordingManager: NSObject, ObservableObject {
         isPaused = false
         recordingTime = 0
         audioRecorder = nil
+
+        if let tm = transcriptionManager {
+            Task {
+                await tm.transcribeRecording(recording, draftText: draftTranscript)
+                if let i = self.recordings.firstIndex(where: { $0.id == recording.id }) {
+                    await MainActor.run {
+                        self.recordings[i].hasTranscript = true
+                        self.saveRecordings()
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Playback

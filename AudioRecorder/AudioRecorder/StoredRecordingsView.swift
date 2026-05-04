@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StoredRecordingsView: View {
     @EnvironmentObject var manager: RecordingManager
+    @EnvironmentObject var transcriptionManager: TranscriptionManager
 
     var body: some View {
         NavigationStack {
@@ -27,17 +28,22 @@ struct StoredRecordingsView: View {
 
 struct RecordingRow: View {
     @EnvironmentObject var manager: RecordingManager
+    @EnvironmentObject var transcriptionManager: TranscriptionManager
     let recording: Recording
 
     @State private var title = ""
+    @State private var transcript: Transcript? = nil
+    @State private var transcriptExpanded = false
     @State private var confirmDelete = false
     @FocusState private var isFocused: Bool
 
-    private var isActive: Bool { manager.playingID == recording.id }
+    private var isActive: Bool  { manager.playingID == recording.id }
     private var isPlaying: Bool { isActive && !manager.isPlaybackPaused }
+    private var isTranscribing: Bool { transcriptionManager.transcribingIDs.contains(recording.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Title
             TextField("Title", text: $title)
                 .font(.headline)
                 .focused($isFocused)
@@ -46,6 +52,7 @@ struct RecordingRow: View {
                     if !focused { commitTitle() }
                 }
 
+            // Metadata
             HStack(spacing: 4) {
                 Text(recording.formattedDate)
                 Text("·")
@@ -54,13 +61,14 @@ struct RecordingRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
+            // Playback progress bar
             if isActive {
                 PlaybackBar()
                     .padding(.vertical, 4)
             }
 
+            // Playback controls
             HStack(spacing: 0) {
-                // Playback controls group
                 HStack(spacing: 0) {
                     Spacer()
                     controlButton("gobackward.10", enabled: isActive) { manager.skip(by: -10) }
@@ -80,10 +88,8 @@ struct RecordingRow: View {
                     Spacer()
                 }
 
-                Divider()
-                    .padding(.horizontal, 12)
+                Divider().padding(.horizontal, 12)
 
-                // Delete — isolated to avoid accidental taps
                 controlButton("trash", color: .red) { confirmDelete = true }
                     .padding(.trailing, 8)
             }
@@ -93,10 +99,94 @@ struct RecordingRow: View {
                 Button("Delete", role: .destructive) { manager.delete(recording) }
                 Button("Cancel", role: .cancel) {}
             }
+
+            // Transcript section
+            transcriptSection
         }
         .padding(.vertical, 6)
-        .onAppear { title = recording.title }
+        .onAppear {
+            title = recording.title
+            transcript = transcriptionManager.loadTranscript(for: recording)
+        }
+        .onChange(of: transcriptionManager.transcribingIDs) { _, ids in
+            if !ids.contains(recording.id) {
+                transcript = transcriptionManager.loadTranscript(for: recording)
+            }
+        }
     }
+
+    // MARK: - Transcript section
+
+    @ViewBuilder
+    private var transcriptSection: some View {
+        if isTranscribing {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                Text("Transcribing…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 4)
+        } else if let transcript {
+            VStack(alignment: .leading, spacing: 6) {
+                // Header row
+                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { transcriptExpanded.toggle() } }) {
+                    HStack {
+                        Text(transcriptExpanded ? "Transcript" : previewText(transcript))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(transcriptExpanded ? nil : 1)
+                        Spacer()
+                        Image(systemName: transcriptExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                if transcriptExpanded {
+                    if transcript.engine == .appleSFSpeech {
+                        Text("Transcribed using built-in ASR")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+
+                    if transcript.segments.isEmpty {
+                        // Flat text fallback (SFSpeech draft)
+                        Text(transcript.fullText.isEmpty ? "No transcript available." : transcript.fullText)
+                            .font(.callout)
+                            .foregroundStyle(.primary)
+                            .padding(.top, 2)
+                    } else {
+                        // Timestamped segments with playback sync
+                        TranscriptSegmentsView(
+                            segments: transcript.segments,
+                            currentTime: isActive ? manager.playbackTime : -1
+                        )
+                    }
+
+                    // Share transcript button
+                    if !transcript.fullText.isEmpty {
+                        ShareLink(item: transcript.fullText, subject: Text(recording.title), message: Text("")) {
+                            Label("Share Transcript", systemImage: "envelope")
+                                .font(.caption.weight(.medium))
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.top, 4)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func previewText(_ transcript: Transcript) -> String {
+        let text = transcript.fullText.isEmpty ? transcript.segments.first?.text ?? "" : transcript.fullText
+        return text.prefix(80).description
+    }
+
+    // MARK: - Helpers
 
     private func handlePlayPause() {
         if isPlaying {
@@ -133,6 +223,44 @@ struct RecordingRow: View {
     }
 }
 
+// MARK: - Transcript segment view with sync highlight
+
+struct TranscriptSegmentsView: View {
+    let segments: [Transcript.Segment]
+    let currentTime: TimeInterval
+
+    private var activeIndex: Int? {
+        guard currentTime >= 0 else { return nil }
+        return segments.lastIndex { $0.startTime <= currentTime }
+    }
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
+                        Text(segment.text + " ")
+                            .font(.callout)
+                            .foregroundStyle(index == activeIndex ? Color.primary : Color.secondary)
+                            .background(index == activeIndex ? Color.yellow.opacity(0.3) : Color.clear)
+                            .cornerRadius(3)
+                            .id(segment.id)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 200)
+            .onChange(of: activeIndex) { _, index in
+                if let index, index < segments.count {
+                    withAnimation { proxy.scrollTo(segments[index].id, anchor: .center) }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Playback bar
+
 struct PlaybackBar: View {
     @EnvironmentObject var manager: RecordingManager
 
@@ -144,12 +272,8 @@ struct PlaybackBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color(.systemGray4))
-                    .frame(height: 3)
-                Capsule()
-                    .fill(Color.accentColor)
-                    .frame(width: geo.size.width * progress, height: 3)
+                Capsule().fill(Color(.systemGray4)).frame(height: 3)
+                Capsule().fill(Color.accentColor).frame(width: geo.size.width * progress, height: 3)
             }
         }
         .frame(height: 3)

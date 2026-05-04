@@ -6,6 +6,7 @@ struct Recording: Identifiable, Codable {
     var title: String
     let date: Date
     var duration: TimeInterval
+    var hasTranscript: Bool = false
 
     var url: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
