@@ -92,23 +92,13 @@ class RecordingManager: NSObject, ObservableObject {
         let duration = accumulatedRecordingTime
         let now = Date()
 
-        guard let url = currentRecordingURL else {
+        guard let cafURL = currentRecordingURL else {
             isRecording = false
             isPaused = false
             recordingTime = 0
             audioEngine = nil
             return
         }
-
-        let recording = Recording(
-            id: UUID(),
-            filename: url.lastPathComponent,
-            title: Recording.autoTitle(for: now),
-            date: now,
-            duration: duration
-        )
-        recordings.insert(recording, at: 0)
-        saveRecordings()
 
         isRecording = false
         isPaused = false
@@ -118,8 +108,24 @@ class RecordingManager: NSObject, ObservableObject {
         lastResumeTime = nil
         accumulatedRecordingTime = 0
 
-        if let tm = transcriptionManager {
-            Task {
+        let m4aFilename = cafURL.deletingPathExtension().appendingPathExtension("m4a").lastPathComponent
+        let m4aURL = documentsURL().appendingPathComponent(m4aFilename)
+
+        let recording = Recording(
+            id: UUID(),
+            filename: m4aFilename,
+            title: Recording.autoTitle(for: now),
+            date: now,
+            duration: duration
+        )
+        recordings.insert(recording, at: 0)
+        saveRecordings()
+
+        Task {
+            await convertToM4A(from: cafURL, to: m4aURL)
+            try? FileManager.default.removeItem(at: cafURL)
+
+            if let tm = transcriptionManager {
                 await tm.transcribeRecording(recording, draftText: draftTranscript)
                 if let i = self.recordings.firstIndex(where: { $0.id == recording.id }) {
                     await MainActor.run {
@@ -127,6 +133,23 @@ class RecordingManager: NSObject, ObservableObject {
                         self.saveRecordings()
                     }
                 }
+            }
+        }
+    }
+
+    private func convertToM4A(from source: URL, to destination: URL) async {
+        await withCheckedContinuation { continuation in
+            guard let exportSession = AVAssetExportSession(
+                asset: AVAsset(url: source),
+                presetName: AVAssetExportPresetAppleM4A
+            ) else {
+                continuation.resume()
+                return
+            }
+            exportSession.outputURL = destination
+            exportSession.outputFileType = .m4a
+            exportSession.exportAsynchronously {
+                continuation.resume()
             }
         }
     }
