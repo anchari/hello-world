@@ -86,7 +86,6 @@ struct RecordingView: View {
     private func formatTime(_ t: TimeInterval) -> String {
         let m = Int(t) / 60
         let s = Int(t) % 60
-        let ds = Int((t * 10).truncatingRemainder(dividingBy: 10))
-        return String(format: "%d:%d.%d", m, s, ds)
+        return String(format: "%d:%02d", m, s)
     }
 }
