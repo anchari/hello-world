@@ -234,28 +234,24 @@ struct TranscriptSegmentsView: View {
         return segments.lastIndex { $0.startTime <= currentTime }
     }
 
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(segments.enumerated()), id: \.element.id) { index, segment in
-                        Text(segment.text + " ")
-                            .font(.callout)
-                            .foregroundStyle(index == activeIndex ? Color.primary : Color.secondary)
-                            .background(index == activeIndex ? Color.yellow.opacity(0.3) : Color.clear)
-                            .cornerRadius(3)
-                            .id(segment.id)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: 200)
-            .onChange(of: activeIndex) { _, index in
-                if let index, index < segments.count {
-                    withAnimation { proxy.scrollTo(segments[index].id, anchor: .center) }
-                }
-            }
+    // Build a single flowing Text from all segments, styling the active one distinctly
+    private var flowingText: Text {
+        segments.enumerated().reduce(Text("")) { result, item in
+            let (index, segment) = item
+            let part = Text(segment.text + " ")
+                .foregroundColor(index == activeIndex ? .primary : .secondary)
+                .fontWeight(index == activeIndex ? .semibold : .regular)
+            return result + part
         }
+    }
+
+    var body: some View {
+        ScrollView {
+            flowingText
+                .font(.callout)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxHeight: 220)
     }
 }
 

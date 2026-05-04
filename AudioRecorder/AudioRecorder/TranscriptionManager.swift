@@ -198,23 +198,32 @@ class TranscriptionManager: ObservableObject {
         )
 
         var segments: [Transcript.Segment] = []
-        var fullText = ""
+        var words: [String] = []
 
         for result in results {
             for seg in result.segments {
+                let clean = Self.cleanSegmentText(seg.text)
+                guard !clean.isEmpty else { continue }
                 let start = TimeInterval(seg.start)
                 let end   = TimeInterval(seg.end)
                 segments.append(Transcript.Segment(
-                    text: seg.text.trimmingCharacters(in: .whitespaces),
+                    text: clean,
                     startTime: start,
                     duration: end - start,
                     confidence: Float(exp(Double(seg.avgLogprob ?? 0)))
                 ))
-                fullText += seg.text
+                words.append(clean)
             }
         }
 
-        return Transcript(engine: .whisperKitSmall, segments: segments, fullText: fullText.trimmingCharacters(in: .whitespaces))
+        return Transcript(engine: .whisperKitSmall, segments: segments, fullText: words.joined(separator: " "))
+    }
+
+    private static func cleanSegmentText(_ text: String) -> String {
+        // Strip WhisperKit timestamp markers e.g. " [00:00.000 --> 00:02.500]"
+        let pattern = #"\s*\[\d+:\d+\.\d+\s*-->\s*\d+:\d+\.\d+\]\s*"#
+        let cleaned = text.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func save(_ transcript: Transcript, for recording: Recording) {
