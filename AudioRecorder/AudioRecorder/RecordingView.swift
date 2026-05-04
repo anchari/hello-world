@@ -25,6 +25,13 @@ struct RecordingView: View {
             }
             .animation(.easeInOut(duration: 0.3), value: manager.isRecording)
             .navigationTitle("Record")
+            .toolbar {
+                ToolbarItem(placement: .bottomBar) {
+                    Text(appVersion)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
         }
     }
 
@@ -141,6 +148,12 @@ struct RecordingView: View {
                 }
         }
         .buttonStyle(.plain)
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "v\(version) (\(build))"
     }
 
     private func formatTime(_ t: TimeInterval) -> String {
