@@ -37,24 +37,18 @@ class RecordingManager: NSObject, ObservableObject {
 
             let engine = AVAudioEngine()
             audioEngine = engine
-            engine.prepare()
-
             let inputNode = engine.inputNode
-            var format = inputNode.outputFormat(forBus: 0)
-
-            // Simulator can return 0 Hz before hardware is ready — use a safe fallback
-            if format.sampleRate == 0 || format.channelCount == 0 {
-                format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
-            }
 
             let filename = "recording_\(Date().timeIntervalSince1970).caf"
             let url = documentsURL().appendingPathComponent(filename)
             currentRecordingURL = url
 
-            audioFile = try AVAudioFile(forWriting: url, settings: format.settings)
-
-            inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            // nil format lets the hardware choose; file is created lazily on the first buffer
+            inputNode.installTap(onBus: 0, bufferSize: 4096, format: nil) { [weak self] buffer, _ in
                 guard let self, !self.isPaused else { return }
+                if self.audioFile == nil {
+                    self.audioFile = try? AVAudioFile(forWriting: url, settings: buffer.format.settings)
+                }
                 try? self.audioFile?.write(from: buffer)
                 self.transcriptionManager?.appendBuffer(buffer)
             }
